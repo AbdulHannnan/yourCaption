@@ -1,0 +1,28 @@
+{
+  "name": "clean",
+  "description": "Minimal, readable captions. Thin outline, calm sizing, bottom-centered.",
+  "font": {
+    "family": "Arial",
+    "familyByLang": { "ur": "Geeza Pro", "hi": "Devanagari Sangam MN" },
+    "sizePct": 5.5,
+    "bold": false,
+    "italic": false
+  },
+  "position": {
+    "align": "bottom",
+    "marginVPct": 7.0,
+    "marginHPct": 6.0
+  },
+  "colors": {
+    "text": "#FFFFFF",
+    "outline": "#000000",
+    "highlight": "#4DA3FF",
+    "shadow": "#00000080"
+  },
+  "outline": {
+    "widthPct": 0.28,
+    "shadowPct": 0.1
+  },
+  "animation": "none",
+  "maxWordsOnScreen": 5
+}

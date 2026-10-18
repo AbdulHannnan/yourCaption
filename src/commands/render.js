@@ -11,6 +11,20 @@ import { basename, extname, join } from "node:path";
 import { loadConfig, resolvePath } from "../lib/project.js";
 import { loadCaptionDoc } from "../lib/captions.js";
 import { buildAss } from "../lib/ass.js";
+import { loadTemplate } from "../lib/templates.js";
+
+// Minimal flag parser: pulls out --template / -t, returns { positional, template }.
+function parseArgs(args) {
+  const positional = [];
+  let template = null;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--template" || a === "-t") template = args[++i];
+    else if (a.startsWith("--template=")) template = a.slice("--template=".length);
+    else positional.push(a);
+  }
+  return { positional, template };
+}
 
 // Probe the first video stream's dimensions.
 function probeDimensions(ffprobeBin, videoPath) {
@@ -55,9 +69,20 @@ export async function render(args) {
   const inputDir = cfg.paths?.input || "input";
   const outputDir = cfg.paths?.output || "output";
 
-  const videoArg = args[0];
+  const { positional, template: templateFlag } = parseArgs(args);
+  const videoArg = positional[0];
+  const templateName = templateFlag || cfg.render?.defaultTemplate || "clean";
   if (!videoArg) {
-    console.error("Usage: render <video>");
+    console.error("Usage: render <video> [--template <name>]");
+    process.exit(1);
+  }
+
+  // Load the style template (fails clearly, listing available ones).
+  let template;
+  try {
+    template = loadTemplate(templateName, cfg);
+  } catch (err) {
+    console.error(err.message);
     process.exit(1);
   }
 
@@ -93,13 +118,14 @@ export async function render(args) {
 
   const dims = probeDimensions(ffprobeBin, videoPath);
 
-  // Write the .ass subtitle file (kept as an artifact).
-  const assPath = join(outDir, `${stem}.ass`);
-  writeFileSync(assPath, buildAss(doc, dims), "utf8");
+  // Write the .ass subtitle file (kept as an artifact), styled by the template.
+  const assPath = join(outDir, `${stem}.${template.name}.ass`);
+  writeFileSync(assPath, buildAss(doc, dims, template), "utf8");
 
-  const outPath = join(outDir, `${stem}.captioned.mp4`);
+  const outPath = join(outDir, `${stem}.${template.name}.captioned.mp4`);
 
   console.log(`Video    : ${videoPath} (${dims.width}x${dims.height})`);
+  console.log(`Template : ${template.name} — ${template.description}`);
   console.log(`Captions : ${captionsPath} (${doc.lines.length} lines)`);
   console.log(`Subtitle : ${assPath}`);
   console.log(`\nBurning captions… (re-encodes video; audio copied as-is)\n`);

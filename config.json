@@ -22,5 +22,8 @@
     "maxWordsPerLine": 5,
     "maxLineDuration": 3.0,
     "maxGapSeconds": 0.6
+  },
+  "render": {
+    "defaultTemplate": "clean"
   }
 }
