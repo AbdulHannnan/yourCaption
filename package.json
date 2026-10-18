@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "doctor": "node src/doctor.js",
-    "extract": "node src/cli.js extract"
+    "extract": "node src/cli.js extract",
+    "transcribe": "node src/cli.js transcribe"
   }
 }

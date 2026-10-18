@@ -3,11 +3,16 @@
 // Commands are added module by module; Module 2 adds `extract`.
 
 import { extract } from "./commands/extract.js";
+import { transcribe } from "./commands/transcribe.js";
 
 const commands = {
   extract: {
     run: extract,
-    usage: "extract <video>   Extract a 16kHz mono WAV from a video into output/",
+    usage: "extract <video>              Extract a 16kHz mono WAV from a video into output/",
+  },
+  transcribe: {
+    run: transcribe,
+    usage: "transcribe <audio> --lang ur  Transcribe audio to words + timings (ur/hi)",
   },
 };
 
