@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { loadConfig, resolvePath } from "../lib/project.js";
+import { buildCaptionDoc, saveCaptionDoc } from "../lib/captions.js";
 
 // Minimal flag parser: pulls out --lang / -l, returns { positional, lang }.
 function parseArgs(args) {
@@ -153,23 +154,40 @@ export async function transcribe(args) {
   const json = JSON.parse(readFileSync(jsonPath, "utf8"));
   const words = parseWhisperJson(json);
 
-  // ---- Print the raw transcript with timings ----
+  // Build the caption document (the backbone file) and save it.
+  const doc = buildCaptionDoc(
+    words,
+    { audio: audioPath, language: lang, model: cfg.whisper?.model },
+    cfg.captions || {}
+  );
+  const captionsPath = join(outDir, `${stem}.captions.json`);
+  saveCaptionDoc(captionsPath, doc);
+
+  // ---- Print the transcript as grouped caption lines ----
   console.log(`\n${"=".repeat(50)}`);
   if (words.length === 0) {
     console.log("No words detected. (Silent/empty audio, or wrong --lang?)");
   } else {
-    const fullText = words.map((w) => w.word).join(" ");
     console.log("Transcript:\n");
-    console.log(fullText);
+    console.log(words.map((w) => w.word).join(" "));
     console.log(`\n${"-".repeat(50)}`);
-    console.log("Word-level timings:\n");
-    for (const w of words) {
-      const conf = w.confidence == null ? " --- " : `${(w.confidence * 100).toFixed(0)}%`.padStart(4);
-      console.log(`  [${fmtTime(w.start)} → ${fmtTime(w.end)}]  ${conf}  ${w.word}`);
+    console.log(`Caption lines (${doc.lines.length}):\n`);
+    for (const line of doc.lines) {
+      console.log(`  #${String(line.index).padStart(2)} [${fmtTime(line.start)} → ${fmtTime(line.end)}]  ${line.text}`);
+    }
+
+    // Flag low-confidence words to fix later (Module 9 edit pass).
+    const shaky = words.filter((w) => w.confidence != null && w.confidence < 0.5);
+    if (shaky.length > 0) {
+      console.log(`\n${"-".repeat(50)}`);
+      console.log(`Low-confidence words to double-check (${shaky.length}):`);
+      console.log("  " + shaky.map((w) => `${w.word} (${Math.round(w.confidence * 100)}%)`).join(", "));
     }
   }
   console.log(`${"=".repeat(50)}`);
-  console.log(`\n${words.length} words. Raw JSON saved: ${jsonPath}`);
+  console.log(`\n${words.length} words in ${doc.lines.length} lines.`);
+  console.log(`Captions saved : ${captionsPath}`);
+  console.log(`Raw whisper JSON: ${jsonPath}`);
 
-  return words;
+  return doc;
 }

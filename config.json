@@ -16,5 +16,10 @@
   "audio": {
     "sampleRate": 16000,
     "channels": 1
+  },
+  "captions": {
+    "maxWordsPerLine": 5,
+    "maxLineDuration": 3.0,
+    "maxGapSeconds": 0.6
   }
 }
