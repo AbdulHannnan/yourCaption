@@ -7,6 +7,8 @@ import { transcribe } from "./commands/transcribe.js";
 import { render } from "./commands/render.js";
 import { enhance } from "./commands/enhance.js";
 import { caption } from "./commands/caption.js";
+import { batch } from "./commands/batch.js";
+import { templates, newTemplate } from "./commands/templates-cmd.js";
 
 const commands = {
   extract: {
@@ -27,7 +29,19 @@ const commands = {
   },
   caption: {
     run: caption,
-    usage: "caption <video> [opts]        Full pipeline + SRT/VTT export (--template --lang --enhance --edit)",
+    usage: "caption <video> [opts]        Full pipeline + SRT/VTT (--template --lang --enhance --edit --preview)",
+  },
+  batch: {
+    run: batch,
+    usage: "batch [folder] [opts]         Run the pipeline on every video in a folder (default input/)",
+  },
+  templates: {
+    run: templates,
+    usage: "templates                     List available style templates",
+  },
+  "new-template": {
+    run: newTemplate,
+    usage: "new-template <name>           Scaffold a new template JSON to edit",
   },
 };
 

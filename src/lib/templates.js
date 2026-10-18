@@ -28,8 +28,10 @@ export const DEFAULT_TEMPLATE = {
     outline: "#000000",
     highlight: "#FFD400", // active-word colour (used in Module 7)
     shadow: "#000000A0",
+    box: "#000000B0",     // caption-box fill when outline.style = "box"
   },
   outline: {
+    style: "outline",     // "outline" (text outline) or "box" (filled bubble)
     widthPct: 0.4,
     shadowPct: 0.15,
   },

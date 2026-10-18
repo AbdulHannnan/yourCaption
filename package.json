@@ -10,6 +10,9 @@
     "transcribe": "node src/cli.js transcribe",
     "render": "node src/cli.js render",
     "enhance": "node src/cli.js enhance",
-    "caption": "node src/cli.js caption"
+    "caption": "node src/cli.js caption",
+    "batch": "node src/cli.js batch",
+    "templates": "node src/cli.js templates",
+    "new-template": "node src/cli.js new-template"
   }
 }

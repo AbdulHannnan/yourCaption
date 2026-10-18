@@ -69,7 +69,7 @@ function humanSize(bytes) {
  * @param {{ assPath: string, outPath: string }} paths
  * @returns {{ dims: object }}
  */
-export function renderVideo(videoPath, doc, template, { assPath, outPath }, cfg, { quiet = false } = {}) {
+export function renderVideo(videoPath, doc, template, { assPath, outPath }, cfg, { quiet = false, previewSeconds = null } = {}) {
   const ffmpegBin = cfg.ffmpeg?.binary || "ffmpeg";
   const ffprobeBin = cfg.ffmpeg?.ffprobe || "ffprobe";
 
@@ -85,8 +85,9 @@ export function renderVideo(videoPath, doc, template, { assPath, outPath }, cfg,
     "-vf", subtitlesFilterArg(assPath),
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
     "-c:a", "copy",
-    outPath,
   ];
+  if (previewSeconds) ffArgs.push("-t", String(previewSeconds)); // first N seconds only
+  ffArgs.push(outPath);
   const res = spawnSync(ffmpegBin, ffArgs, { stdio: quiet ? "ignore" : ["ignore", "inherit", "inherit"] });
   if (res.error) {
     if (res.error.code === "ENOENT") throw new Error(`'${ffmpegBin}' not found. brew install ffmpeg`);

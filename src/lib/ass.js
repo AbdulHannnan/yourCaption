@@ -99,9 +99,16 @@ export function buildAss(doc, dims, template) {
   const primary = hexToAss(template.colors?.text ?? "#FFFFFF");
   const secondary = hexToAss(template.colors?.highlight ?? "#FFD400");
   const outlineColour = hexToAss(template.colors?.outline ?? "#000000");
-  const backColour = hexToAss(template.colors?.shadow ?? "#000000A0");
   const bold = template.font?.bold ? -1 : 0;
   const italic = template.font?.italic ? -1 : 0;
+
+  // Border style: "outline" (1 = text outline + drop shadow) or "box" (3 = a
+  // filled caption box behind the text — the "bubble" look).
+  const boxStyle = (template.outline?.style || "outline").toLowerCase() === "box";
+  const borderStyle = boxStyle ? 3 : 1;
+  const backColour = boxStyle
+    ? hexToAss(template.colors?.box ?? template.colors?.shadow ?? "#000000B0")
+    : hexToAss(template.colors?.shadow ?? "#000000A0");
 
   const header = [
     "[Script Info]",
@@ -115,7 +122,7 @@ export function buildAss(doc, dims, template) {
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: Default,${font},${fontSize},${primary},${secondary},${outlineColour},${backColour},${bold},${italic},0,0,100,100,0,0,1,${outlineW},${shadowW},${alignment},${marginLR},${marginLR},${marginV},1`,
+    `Style: Default,${font},${fontSize},${primary},${secondary},${outlineColour},${backColour},${bold},${italic},0,0,100,100,0,0,${borderStyle},${outlineW},${shadowW},${alignment},${marginLR},${marginLR},${marginV},1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

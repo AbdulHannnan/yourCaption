@@ -1,0 +1,30 @@
+{
+  "name": "bubble",
+  "description": "Rounded, friendly look with a filled caption box behind the words.",
+  "font": {
+    "family": "Arial",
+    "familyByLang": { "ur": "Geeza Pro", "hi": "Devanagari Sangam MN" },
+    "sizePct": 6.5,
+    "bold": true,
+    "italic": false
+  },
+  "position": {
+    "align": "bottom",
+    "marginVPct": 9.0,
+    "marginHPct": 8.0
+  },
+  "colors": {
+    "text": "#111111",
+    "outline": "#FFFFFF",
+    "highlight": "#FF3B6B",
+    "shadow": "#00000000",
+    "box": "#FFFFFFE6"
+  },
+  "outline": {
+    "style": "box",
+    "widthPct": 0.6,
+    "shadowPct": 0.0
+  },
+  "animation": "none",
+  "maxWordsOnScreen": 4
+}
