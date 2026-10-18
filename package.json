@@ -7,6 +7,7 @@
   "scripts": {
     "doctor": "node src/doctor.js",
     "extract": "node src/cli.js extract",
-    "transcribe": "node src/cli.js transcribe"
+    "transcribe": "node src/cli.js transcribe",
+    "render": "node src/cli.js render"
   }
 }

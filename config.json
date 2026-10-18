@@ -6,7 +6,8 @@
     "models": "models"
   },
   "ffmpeg": {
-    "binary": "ffmpeg"
+    "binary": "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg",
+    "ffprobe": "/opt/homebrew/opt/ffmpeg-full/bin/ffprobe"
   },
   "whisper": {
     "binary": "whisper-cli",
