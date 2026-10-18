@@ -9,6 +9,7 @@
     "extract": "node src/cli.js extract",
     "transcribe": "node src/cli.js transcribe",
     "render": "node src/cli.js render",
-    "enhance": "node src/cli.js enhance"
+    "enhance": "node src/cli.js enhance",
+    "caption": "node src/cli.js caption"
   }
 }

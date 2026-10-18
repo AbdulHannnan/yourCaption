@@ -7,9 +7,9 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, statSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { loadConfig, resolvePath } from "../lib/project.js";
-import { loadCaptionDoc } from "../lib/captions.js";
+import { loadCaptionDoc, syncWordsToText } from "../lib/captions.js";
 import { buildAss } from "../lib/ass.js";
 import { loadTemplate } from "../lib/templates.js";
 
@@ -62,10 +62,42 @@ function humanSize(bytes) {
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
 }
 
-export async function render(args) {
-  const cfg = loadConfig();
+/**
+ * Core: burn a caption doc onto a video using a template.
+ * Re-syncs per-word timings to any edited line text first, so editing a
+ * line's `text` is enough.
+ * @param {{ assPath: string, outPath: string }} paths
+ * @returns {{ dims: object }}
+ */
+export function renderVideo(videoPath, doc, template, { assPath, outPath }, cfg, { quiet = false } = {}) {
   const ffmpegBin = cfg.ffmpeg?.binary || "ffmpeg";
   const ffprobeBin = cfg.ffmpeg?.ffprobe || "ffprobe";
+
+  syncWordsToText(doc); // honor edits to line.text (no-op when already in sync)
+
+  const dims = probeDimensions(ffprobeBin, videoPath);
+  mkdirSync(dirname(assPath), { recursive: true });
+  writeFileSync(assPath, buildAss(doc, dims, template), "utf8");
+
+  const ffArgs = [
+    "-y", "-nostdin", "-loglevel", "error", "-stats",
+    "-i", videoPath,
+    "-vf", subtitlesFilterArg(assPath),
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+    "-c:a", "copy",
+    outPath,
+  ];
+  const res = spawnSync(ffmpegBin, ffArgs, { stdio: quiet ? "ignore" : ["ignore", "inherit", "inherit"] });
+  if (res.error) {
+    if (res.error.code === "ENOENT") throw new Error(`'${ffmpegBin}' not found. brew install ffmpeg`);
+    throw res.error;
+  }
+  if (res.status !== 0) throw new Error(`ffmpeg failed while burning captions (exit ${res.status}).`);
+  return { dims };
+}
+
+export async function render(args) {
+  const cfg = loadConfig();
   const inputDir = cfg.paths?.input || "input";
   const outputDir = cfg.paths?.output || "output";
 
@@ -116,38 +148,15 @@ export async function render(args) {
     process.exit(2);
   }
 
-  const dims = probeDimensions(ffprobeBin, videoPath);
-
-  // Write the .ass subtitle file (kept as an artifact), styled by the template.
   const assPath = join(outDir, `${stem}.${template.name}.ass`);
-  writeFileSync(assPath, buildAss(doc, dims, template), "utf8");
-
   const outPath = join(outDir, `${stem}.${template.name}.captioned.mp4`);
 
-  console.log(`Video    : ${videoPath} (${dims.width}x${dims.height})`);
   console.log(`Template : ${template.name} — ${template.description}`);
   console.log(`Captions : ${captionsPath} (${doc.lines.length} lines)`);
   console.log(`Subtitle : ${assPath}`);
   console.log(`\nBurning captions… (re-encodes video; audio copied as-is)\n`);
 
-  const ffArgs = [
-    "-y", "-nostdin", "-loglevel", "error", "-stats",
-    "-i", videoPath,
-    "-vf", subtitlesFilterArg(assPath),
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-    "-c:a", "copy",
-    outPath,
-  ];
+  const { dims } = renderVideo(videoPath, doc, template, { assPath, outPath }, cfg);
 
-  const res = spawnSync(ffmpegBin, ffArgs, { stdio: ["ignore", "inherit", "inherit"] });
-  if (res.error) {
-    if (res.error.code === "ENOENT") throw new Error(`'${ffmpegBin}' not found. brew install ffmpeg`);
-    throw res.error;
-  }
-  if (res.status !== 0) {
-    throw new Error(`ffmpeg failed while burning captions (exit ${res.status}).`);
-  }
-
-  const size = statSync(outPath).size;
-  console.log(`\n✅ Wrote ${outPath} (${humanSize(size)})`);
+  console.log(`\n✅ Wrote ${outPath} (${humanSize(statSync(outPath).size)}, ${dims.width}x${dims.height})`);
 }

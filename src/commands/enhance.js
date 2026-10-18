@@ -8,7 +8,7 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, statSync, readdirSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { loadConfig, resolvePath } from "../lib/project.js";
 
 function parseArgs(args) {
@@ -46,8 +46,12 @@ function runDeepFilter(bin, input, outDir) {
   return join(tmp, pick.sort().pop());
 }
 
-export async function enhance(args) {
-  const cfg = loadConfig();
+/**
+ * Core: enhance audio from inPath to outPath (16kHz mono PCM).
+ * @param {object} opts { useAI, quiet }
+ * @returns {{ usedAI: boolean, chain: string }}
+ */
+export function enhanceAudio(inPath, outPath, cfg, { useAI = false, quiet = false } = {}) {
   const ffmpegBin = cfg.ffmpeg?.binary || "ffmpeg";
   const sr = cfg.audio?.sampleRate || 16000;
   const ch = cfg.audio?.channels || 1;
@@ -57,8 +61,53 @@ export async function enhance(args) {
   const I = en.loudnessI ?? -16;
   const TP = en.loudnessTP ?? -1.5;
   const LRA = en.loudnessLRA ?? 11;
-  const outputDir = cfg.paths?.output || "output";
+  const outDir = dirname(outPath);
+  mkdirSync(outDir, { recursive: true });
 
+  // Optional AI denoise (produces an intermediate wav for ffmpeg to finish).
+  let source = inPath;
+  let usedAI = false;
+  if (useAI) {
+    const dfn = findDeepFilter();
+    if (dfn) {
+      try {
+        source = runDeepFilter(dfn, inPath, outDir);
+        usedAI = true;
+      } catch (err) {
+        if (!quiet) console.error(`AI denoiser failed (${err.message}). Falling back to the ffmpeg denoiser.\n`);
+        source = inPath;
+      }
+    } else if (!quiet) {
+      console.error("AI denoiser requested but DeepFilterNet was not found.");
+      console.error("To install it (heavy — pulls PyTorch, ~2–4 GB download, needs ~2–4 GB RAM to run):");
+      console.error("  pip install deepfilternet      # provides the 'deepFilter' command");
+      console.error("Falling back to the light ffmpeg denoiser for now.\n");
+    }
+  }
+
+  const filters = [`highpass=f=${hp}`];
+  if (!usedAI) filters.push(`afftdn=nf=${nf}`);
+  filters.push(`loudnorm=I=${I}:TP=${TP}:LRA=${LRA}`);
+  const af = filters.join(",");
+
+  const res = spawnSync(
+    ffmpegBin,
+    ["-y", "-nostdin", "-loglevel", "error", "-i", source, "-af", af, "-ar", String(sr), "-ac", String(ch), "-c:a", "pcm_s16le", outPath],
+    { stdio: quiet ? "ignore" : ["ignore", "inherit", "inherit"] }
+  );
+  if (res.error) {
+    if (res.error.code === "ENOENT") throw new Error(`'${ffmpegBin}' not found. brew install ffmpeg`);
+    throw res.error;
+  }
+  if (res.status !== 0) throw new Error(`ffmpeg enhancement failed (exit ${res.status}).`);
+  return { usedAI, chain: af };
+}
+
+// CLI wrapper.
+export async function enhance(args) {
+  const cfg = loadConfig();
+  const en = cfg.enhance || {};
+  const outputDir = cfg.paths?.output || "output";
   const { positional, ai } = parseArgs(args);
   const useAI = ai || en.useAIDenoiser;
   const audioArg = positional[0];
@@ -67,7 +116,6 @@ export async function enhance(args) {
     process.exit(1);
   }
 
-  // Resolve the audio (direct path, or a filename in output/ or input/).
   let audioPath = audioArg;
   if (!existsSync(audioPath)) {
     for (const dir of [outputDir, cfg.paths?.input || "input"]) {
@@ -81,53 +129,12 @@ export async function enhance(args) {
   }
 
   const outDir = resolvePath(outputDir);
-  mkdirSync(outDir, { recursive: true });
   const stem = basename(audioPath, extname(audioPath));
   const outPath = join(outDir, `${stem}.enhanced.wav`);
 
-  // Optional AI denoise step (produces an intermediate wav for ffmpeg to finish).
-  let source = audioPath;
-  let usedAI = false;
-  if (useAI) {
-    const dfn = findDeepFilter();
-    if (dfn) {
-      try {
-        source = runDeepFilter(dfn, audioPath, outDir);
-        usedAI = true;
-      } catch (err) {
-        console.error(`AI denoiser failed (${err.message}). Falling back to the ffmpeg denoiser.\n`);
-        source = audioPath;
-      }
-    } else {
-      console.error("AI denoiser requested but DeepFilterNet was not found.");
-      console.error("To install it (heavy — pulls PyTorch, ~2–4 GB download, needs ~2–4 GB RAM to run):");
-      console.error("  pip install deepfilternet      # provides the 'deepFilter' command");
-      console.error("Falling back to the light ffmpeg denoiser for now.\n");
-    }
-  }
-
-  // Build the ffmpeg filter chain. If AI denoising already ran, skip afftdn.
-  const filters = [`highpass=f=${hp}`];
-  if (!usedAI) filters.push(`afftdn=nf=${nf}`);
-  filters.push(`loudnorm=I=${I}:TP=${TP}:LRA=${LRA}`);
-  const af = filters.join(",");
-
   console.log(`Input    : ${audioPath}`);
+  const { usedAI, chain } = enhanceAudio(audioPath, outPath, cfg, { useAI });
   console.log(`Denoiser : ${usedAI ? "DeepFilterNet (AI)" : "ffmpeg afftdn (light default)"}`);
-  console.log(`Chain    : ${af}`);
-  console.log(`Output   : ${outPath} (${sr} Hz, ${ch} ch)\n`);
-
-  const res = spawnSync(
-    ffmpegBin,
-    ["-y", "-nostdin", "-loglevel", "error", "-i", source, "-af", af, "-ar", String(sr), "-ac", String(ch), "-c:a", "pcm_s16le", outPath],
-    { stdio: ["ignore", "inherit", "inherit"] }
-  );
-  if (res.error) {
-    if (res.error.code === "ENOENT") throw new Error(`'${ffmpegBin}' not found. brew install ffmpeg`);
-    throw res.error;
-  }
-  if (res.status !== 0) throw new Error(`ffmpeg enhancement failed (exit ${res.status}).`);
-
-  const size = statSync(outPath).size;
-  console.log(`\n✅ Wrote ${outPath} (${(size / 1024).toFixed(0)} KB)`);
+  console.log(`Chain    : ${chain}`);
+  console.log(`\n✅ Wrote ${outPath} (${(statSync(outPath).size / 1024).toFixed(0)} KB)`);
 }

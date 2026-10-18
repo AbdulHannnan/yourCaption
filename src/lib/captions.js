@@ -101,6 +101,36 @@ export function buildCaptionDoc(words, source = {}, rules = {}) {
   };
 }
 
+/**
+ * Edit support: make each line's per-word list match its (possibly edited)
+ * `text`. `text` is the human-facing source of truth.
+ *  - same word count  -> keep timings/confidence, replace the word strings
+ *  - different count  -> evenly distribute the line's [start,end] across tokens
+ * No-op when text and words already agree.
+ */
+export function syncWordsToText(doc) {
+  for (const line of doc.lines || []) {
+    const tokens = String(line.text ?? "").trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) continue;
+    const words = line.words || [];
+
+    if (tokens.length === words.length) {
+      line.words = tokens.map((t, i) => ({ ...words[i], word: t }));
+    } else {
+      const start = line.start;
+      const span = Math.max(0, line.end - line.start);
+      const step = span / tokens.length;
+      line.words = tokens.map((t, i) => ({
+        word: t,
+        start: +(start + i * step).toFixed(3),
+        end: +(start + (i + 1) * step).toFixed(3),
+        confidence: null,
+      }));
+    }
+  }
+  return doc;
+}
+
 export function saveCaptionDoc(path, doc) {
   writeFileSync(path, JSON.stringify(doc, null, 2) + "\n", "utf8");
 }

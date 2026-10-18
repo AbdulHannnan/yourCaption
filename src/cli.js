@@ -6,6 +6,7 @@ import { extract } from "./commands/extract.js";
 import { transcribe } from "./commands/transcribe.js";
 import { render } from "./commands/render.js";
 import { enhance } from "./commands/enhance.js";
+import { caption } from "./commands/caption.js";
 
 const commands = {
   extract: {
@@ -23,6 +24,10 @@ const commands = {
   enhance: {
     run: enhance,
     usage: "enhance <audio> [--ai]        Clean up audio (denoise, high-pass, normalize)",
+  },
+  caption: {
+    run: caption,
+    usage: "caption <video> [opts]        Full pipeline + SRT/VTT export (--template --lang --enhance --edit)",
   },
 };
 

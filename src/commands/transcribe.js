@@ -74,9 +74,44 @@ function fmtTime(s) {
   return `${String(m).padStart(2, "0")}:${sec}`;
 }
 
+/**
+ * Core: run whisper.cpp on an audio file and return parsed words.
+ * Writes whisper's raw JSON to output/<audioStem>.whisper.json.
+ * @returns {{ words: Array, jsonPath: string }}
+ */
+export function transcribeWords(audioPath, lang, cfg, { quiet = false } = {}) {
+  const whisperBin = cfg.whisper?.binary || "whisper-cli";
+  const modelPath = resolvePath(cfg.whisper?.model || "");
+  const threads = cfg.whisper?.threads || 4;
+  const outDir = resolvePath(cfg.paths?.output || "output");
+  mkdirSync(outDir, { recursive: true });
+
+  if (!existsSync(modelPath)) {
+    throw new Error(`Whisper model not found: ${modelPath}\nRun 'npm run doctor' to check setup.`);
+  }
+
+  const stem = basename(audioPath, extname(audioPath));
+  const jsonPrefix = join(outDir, `${stem}.whisper`);
+  const jsonPath = `${jsonPrefix}.json`;
+
+  const wArgs = [
+    "-m", modelPath, "-f", audioPath, "-l", lang, "-t", String(threads),
+    "-ml", "1", "-sow", "-ojf", "-of", jsonPrefix, "-pp",
+  ];
+  const res = spawnSync(whisperBin, wArgs, { stdio: quiet ? "ignore" : ["ignore", "inherit", "inherit"] });
+  if (res.error) {
+    if (res.error.code === "ENOENT") throw new Error(`'${whisperBin}' not found. Install it: brew install whisper-cpp`);
+    throw res.error;
+  }
+  if (res.status !== 0) throw new Error(`whisper-cli exited with code ${res.status}.`);
+  if (!existsSync(jsonPath)) throw new Error(`Expected whisper output not found: ${jsonPath}`);
+
+  const json = JSON.parse(readFileSync(jsonPath, "utf8"));
+  return { words: parseWhisperJson(json), jsonPath };
+}
+
 export async function transcribe(args) {
   const cfg = loadConfig();
-  const whisperBin = cfg.whisper?.binary || "whisper-cli";
   const modelPath = resolvePath(cfg.whisper?.model || "");
   const defaultLang = cfg.whisper?.defaultLanguage || "ur";
   const threads = cfg.whisper?.threads || 4;
@@ -111,12 +146,8 @@ export async function transcribe(args) {
     process.exit(1);
   }
 
-  // Where whisper writes its JSON. It appends ".json" to this prefix.
   const outDir = resolvePath(outputDir);
-  mkdirSync(outDir, { recursive: true });
   const stem = basename(audioPath, extname(audioPath));
-  const jsonPrefix = join(outDir, `${stem}.whisper`);
-  const jsonPath = `${jsonPrefix}.json`;
 
   console.log(`Model   : ${cfg.whisper?.model}`);
   console.log(`Audio   : ${audioPath}`);
@@ -124,35 +155,7 @@ export async function transcribe(args) {
   console.log(`Threads : ${threads}`);
   console.log(`\nTranscribing… (this is the slow step; progress below)\n`);
 
-  const wArgs = [
-    "-m", modelPath,
-    "-f", audioPath,
-    "-l", lang,
-    "-t", String(threads),
-    "-ml", "1",          // one word per segment…
-    "-sow",              // …split on word boundaries
-    "-ojf",              // full JSON (includes per-token probabilities)
-    "-of", jsonPrefix,   // output file prefix
-    "-pp",               // print progress
-  ];
-
-  // Let whisper's progress print straight to the terminal (stderr inherited).
-  const res = spawnSync(whisperBin, wArgs, { stdio: ["ignore", "inherit", "inherit"] });
-  if (res.error) {
-    if (res.error.code === "ENOENT") {
-      throw new Error(`'${whisperBin}' not found. Install it: brew install whisper-cpp`);
-    }
-    throw res.error;
-  }
-  if (res.status !== 0) {
-    throw new Error(`whisper-cli exited with code ${res.status}.`);
-  }
-  if (!existsSync(jsonPath)) {
-    throw new Error(`Expected whisper output not found: ${jsonPath}`);
-  }
-
-  const json = JSON.parse(readFileSync(jsonPath, "utf8"));
-  const words = parseWhisperJson(json);
+  const { words, jsonPath } = transcribeWords(audioPath, lang, cfg);
 
   // Build the caption document (the backbone file) and save it.
   const doc = buildCaptionDoc(
