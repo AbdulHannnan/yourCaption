@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "doctor": "node src/doctor.js"
+    "doctor": "node src/doctor.js",
+    "extract": "node src/cli.js extract"
   }
 }
