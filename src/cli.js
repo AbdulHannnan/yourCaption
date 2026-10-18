@@ -5,6 +5,7 @@
 import { extract } from "./commands/extract.js";
 import { transcribe } from "./commands/transcribe.js";
 import { render } from "./commands/render.js";
+import { enhance } from "./commands/enhance.js";
 
 const commands = {
   extract: {
@@ -18,6 +19,10 @@ const commands = {
   render: {
     run: render,
     usage: "render <video>                Burn the caption JSON onto the video",
+  },
+  enhance: {
+    run: enhance,
+    usage: "enhance <audio> [--ai]        Clean up audio (denoise, high-pass, normalize)",
   },
 };
 

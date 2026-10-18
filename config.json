@@ -25,5 +25,13 @@
   },
   "render": {
     "defaultTemplate": "clean"
+  },
+  "enhance": {
+    "highpassHz": 90,
+    "denoiseNf": -25,
+    "loudnessI": -16,
+    "loudnessTP": -1.5,
+    "loudnessLRA": 11,
+    "useAIDenoiser": false
   }
 }
