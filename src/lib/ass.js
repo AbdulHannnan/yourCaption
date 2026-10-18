@@ -2,7 +2,29 @@
 // styled by a template (Module 6). Animation fields are declared by templates
 // but implemented in Module 7; this module renders static styled lines.
 
-import { resolveFontFamily } from "./templates.js";
+import { resolveFontFamily, normalizeAnimation } from "./templates.js";
+
+// Colour for inline override tags (\1c): ASS wants &HBBGGRR& (no alpha).
+function hexToColorTag(hex) {
+  const h = String(hex).replace(/^#/, "").trim().slice(0, 6);
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return "&HFFFFFF&";
+  return `&H${h.slice(4, 6)}${h.slice(2, 4)}${h.slice(0, 2)}&`.toUpperCase();
+}
+
+// Escape a single word for an ASS field (neutralise override braces).
+function escapeWord(w) {
+  return String(w).replace(/\{/g, "(").replace(/\}/g, ")");
+}
+
+// Build the inline override + text for the currently-active word.
+function activeWordToken(word, anim, hlTag) {
+  let ov = "";
+  if (anim.highlight) ov += `\\1c${hlTag}`;
+  if (anim.pop) ov += `\\fscx${anim.popScale}\\fscy${anim.popScale}\\t(0,${anim.popMs},\\fscx100\\fscy100)`;
+  if (anim.fade) ov += `\\alpha&HFF&\\t(0,${anim.fadeMs},\\alpha&H00&)`;
+  if (!ov) return escapeWord(word);
+  return `{${ov}}${escapeWord(word)}{\\r}`; // \r resets to the Default style after the word
+}
 
 // Convert "#RRGGBB" or "#RRGGBBAA" (AA = opacity, FF = opaque) to ASS
 // &HAABBGGRR (where ASS alpha is inverted: 00 = opaque, FF = transparent).
@@ -99,9 +121,37 @@ export function buildAss(doc, dims, template) {
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
   ];
 
-  const events = (doc.lines || []).map((line) => {
-    return `Dialogue: 0,${assTime(line.start)},${assTime(line.end)},Default,,0,0,0,,${escapeText(line.text)}`;
-  });
+  const anim = normalizeAnimation(template.animation);
+  const animated = anim.reveal || anim.highlight || anim.pop || anim.fade;
+  const hlTag = hexToColorTag(template.colors?.highlight ?? "#FFD400");
+
+  const events = [];
+  for (const line of doc.lines || []) {
+    const words = line.words || [];
+
+    // Static path (animation "none"): one event per line — unchanged behaviour.
+    if (!animated || words.length === 0) {
+      events.push(`Dialogue: 0,${assTime(line.start)},${assTime(line.end)},Default,,0,0,0,,${escapeText(line.text)}`);
+      continue;
+    }
+
+    // Animated path: one event per word's "active" window, redrawing the line.
+    const n = words.length;
+    for (let i = 0; i < n; i++) {
+      // Reveal: words appear as spoken. Karaoke (no reveal): whole line shows
+      // from line start, highlight sweeps across it.
+      const start = anim.reveal ? words[i].start : (i === 0 ? Math.min(line.start, words[0].start) : words[i].start);
+      const rawEnd = i < n - 1 ? words[i + 1].start : line.end;
+      const end = Math.max(rawEnd, start + 0.05); // guard against zero/negative spans
+
+      const visibleCount = anim.reveal ? i + 1 : n;
+      const parts = [];
+      for (let j = 0; j < visibleCount; j++) {
+        parts.push(j === i ? activeWordToken(words[j].word, anim, hlTag) : escapeWord(words[j].word));
+      }
+      events.push(`Dialogue: 0,${assTime(start)},${assTime(end)},Default,,0,0,0,,${parts.join(" ")}`);
+    }
+  }
 
   return header.concat(events).join("\n") + "\n";
 }

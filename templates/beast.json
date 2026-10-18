@@ -1,0 +1,35 @@
+{
+  "name": "beast",
+  "description": "Word-by-word reveal with a bright highlight sweep and pop — the modern social look.",
+  "font": {
+    "family": "Arial",
+    "familyByLang": { "ur": "Geeza Pro", "hi": "Devanagari Sangam MN" },
+    "sizePct": 8.0,
+    "bold": true,
+    "italic": false
+  },
+  "position": {
+    "align": "middle",
+    "marginVPct": 0,
+    "marginHPct": 6.0
+  },
+  "colors": {
+    "text": "#FFFFFF",
+    "outline": "#000000",
+    "highlight": "#2BE86B",
+    "shadow": "#000000B0"
+  },
+  "outline": {
+    "widthPct": 0.7,
+    "shadowPct": 0.2
+  },
+  "animation": {
+    "reveal": true,
+    "highlight": true,
+    "pop": true,
+    "fade": false,
+    "popScale": 140,
+    "popMs": 110
+  },
+  "maxWordsOnScreen": 4
+}

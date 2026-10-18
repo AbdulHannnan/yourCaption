@@ -89,3 +89,25 @@ export function resolveFontFamily(template, language) {
   const lang = (language || "").toLowerCase();
   return byLang[lang] || template.font?.family || "Arial";
 }
+
+// Animation flags with safe defaults ("off" = static line, the Module 5/6 look).
+const ANIM_OFF = { reveal: false, highlight: false, pop: false, fade: false, popScale: 130, popMs: 120, fadeMs: 120 };
+
+/**
+ * Normalize a template's `animation` field (string preset OR object of flags)
+ * into a flat flags object the renderer can use.
+ */
+export function normalizeAnimation(anim) {
+  if (!anim || anim === "none") return { ...ANIM_OFF };
+  if (typeof anim === "string") {
+    switch (anim.toLowerCase()) {
+      case "reveal":  return { ...ANIM_OFF, reveal: true, highlight: true, pop: true };
+      case "karaoke": return { ...ANIM_OFF, highlight: true, pop: true };
+      case "pop":     return { ...ANIM_OFF, reveal: true, pop: true };
+      case "fade":    return { ...ANIM_OFF, reveal: true, fade: true };
+      default:        return { ...ANIM_OFF };
+    }
+  }
+  if (typeof anim === "object") return { ...ANIM_OFF, ...anim };
+  return { ...ANIM_OFF };
+}
