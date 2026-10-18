@@ -1,0 +1,6 @@
+models/
+node_modules/
+input/
+output/
+*.bin
+.DS_Store

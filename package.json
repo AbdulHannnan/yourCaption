@@ -1,0 +1,10 @@
+{
+  "name": "yourcaption",
+  "version": "0.1.0",
+  "description": "Local Urdu/Hindi video captioning tool (whisper.cpp + ffmpeg)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "doctor": "node src/doctor.js"
+  }
+}

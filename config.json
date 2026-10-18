@@ -1,0 +1,20 @@
+{
+  "paths": {
+    "input": "input",
+    "output": "output",
+    "templates": "templates",
+    "models": "models"
+  },
+  "ffmpeg": {
+    "binary": "ffmpeg"
+  },
+  "whisper": {
+    "binary": "whisper-cli",
+    "model": "models/ggml-large-v3-turbo-q5_0.bin",
+    "defaultLanguage": "ur"
+  },
+  "audio": {
+    "sampleRate": 16000,
+    "channels": 1
+  }
+}
