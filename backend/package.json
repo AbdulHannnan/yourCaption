@@ -1,0 +1,15 @@
+{
+  "name": "yourcaption-backend",
+  "version": "0.1.0",
+  "description": "Express API for yourCaption — wraps the CLI engine and will serve async captioning jobs",
+  "type": "module",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
