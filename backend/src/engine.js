@@ -64,3 +64,77 @@ export function runEngine(args, { onLog, cwd = ENGINE_DIR } = {}) {
     child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
   });
 }
+
+/**
+ * Ask the engine for its list of templates by running `cli.js templates` and
+ * parsing the output. Each printed entry is two leading spaces, the name, then
+ * its description. Going through the CLI keeps template discovery owned by the
+ * engine — the backend never reads the engine's template files itself.
+ * @returns {Promise<Array<{name:string, description:string}>>}
+ */
+export async function listTemplates() {
+  const { code, stdout, stderr } = await runEngine(["templates"]);
+  if (code !== 0) {
+    throw new Error(`engine 'templates' failed: ${stderr.trim() || `exit ${code}`}`);
+  }
+  const templates = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const m = line.match(/^ {2}(\S+)\s+(.*)$/);
+    if (m) templates.push({ name: m[1], description: m[2].trim() });
+  }
+  return templates;
+}
+
+// Map the engine's step markers to a coarse progress %. The transcription step
+// is by far the slowest, so the jump from 40 -> 85 covers most of the wait.
+const STEP_PROGRESS = [
+  { re: /\[1\/4\]/, progress: 10, message: "Extracting audio" },
+  { re: /\[2\/4\]/, progress: 25, message: "Preparing audio" },
+  { re: /\[3\/4\]/, progress: 40, message: "Transcribing (this is the slow step)" },
+  { re: /\[1-3\]/, progress: 40, message: "Reusing existing captions" },
+  { re: /\[4\/4\]/, progress: 85, message: "Rendering captions onto the video" },
+];
+
+/**
+ * Run the full caption pipeline for one video via the engine CLI.
+ *
+ * @param {object} params
+ * @param {string} params.videoPath   Absolute path to the uploaded video.
+ * @param {string} params.language    Language code (e.g. "ur", "hi").
+ * @param {string} params.template    Template name.
+ * @param {(patch:{progress?:number,message?:string})=>void} [params.onProgress]
+ *        Called as the engine advances through its steps.
+ * @returns {Promise<{outputPath:string}>}
+ * @throws  Error with a clean message if the engine fails or produces nothing.
+ */
+export async function runCaption({ videoPath, language, template, onProgress }) {
+  const args = ["caption", videoPath, "--template", template, "--lang", language];
+
+  const { code, stdout, stderr } = await runEngine(args, {
+    onLog: (line) => {
+      if (!onProgress) return;
+      for (const step of STEP_PROGRESS) {
+        if (step.re.test(line)) {
+          onProgress({ progress: step.progress, message: step.message });
+          break;
+        }
+      }
+    },
+  });
+
+  const combined = `${stdout}\n${stderr}`;
+
+  if (code !== 0) {
+    // The engine exits 2 when there is no audio / no caption lines — surface a
+    // friendly reason; otherwise fall back to whatever it printed.
+    const reason = stderr.trim() || stdout.trim() || `engine exited with code ${code}`;
+    throw new Error(reason.split("\n").slice(-3).join(" ").trim());
+  }
+
+  // The engine prints the finished file as:  "   Video : /abs/path.mp4 (45.3 MB)"
+  const m = combined.match(/Video\s*:\s*(.+?\.mp4)\s*\(/);
+  if (!m) {
+    throw new Error("engine finished but no output video path was found in its output");
+  }
+  return { outputPath: m[1].trim() };
+}
