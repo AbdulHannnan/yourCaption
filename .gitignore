@@ -4,3 +4,8 @@ input/
 output/
 *.bin
 .DS_Store
+
+# runtime artifacts (uploaded videos, generated audio/subtitles)
+uploads/
+*.wav
+*.ass
