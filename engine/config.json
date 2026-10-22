@@ -11,8 +11,26 @@
   },
   "whisper": {
     "binary": "whisper-cli",
-    "model": "models/ggml-large-v3-turbo-q5_0.bin",
-    "defaultLanguage": "ur"
+    "model": "models/ggml-large-v3-q5_0.bin",
+    "modelFast": "models/ggml-large-v3-turbo-q5_0.bin",
+    "defaultLanguage": "hinglish",
+    "threads": 4,
+    "beamSize": 5,
+    "bestOf": 5,
+    "entropyThold": 2.4,
+    "temperature": 0.0,
+    "vad": true,
+    "vadModel": "models/ggml-silero-v5.1.2.bin",
+    "vadThreshold": 0.6,
+    "prompts": {
+      "hinglish": "phone, video, internet, WhatsApp, YouTube, Instagram, Facebook, computer, online, channel, subscribe, link, business, market, success, mobile, app, podcast, matlab, bhai, dosto",
+      "hi": "हिंदी उर्दू बातचीत, phone, video, internet, WhatsApp, YouTube, computer, channel, business, success, mobile, online",
+      "ur": "اردو ہندی گفتگو، phone, video, internet, WhatsApp, YouTube, computer, channel, business, success, mobile, online"
+    }
+  },
+  "transliterate": {
+    "enabled": true,
+    "sourceLang": "hi"
   },
   "audio": {
     "sampleRate": 16000,
@@ -27,6 +45,7 @@
     "defaultTemplate": "clean"
   },
   "enhance": {
+    "default": true,
     "highpassHz": 90,
     "denoiseNf": -25,
     "loudnessI": -16,

@@ -14,5 +14,8 @@
     "batch": "node src/cli.js batch",
     "templates": "node src/cli.js templates",
     "new-template": "node src/cli.js new-template"
+  },
+  "dependencies": {
+    "@indic-transliteration/sanscript": "^1.3.3"
   }
 }

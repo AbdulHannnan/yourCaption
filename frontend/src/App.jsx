@@ -2,14 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 
 // Languages the engine supports.
 const LANGUAGES = [
-  { code: "ur", label: "Urdu" },
-  { code: "hi", label: "Hindi" },
+  { code: "hinglish", label: "Hinglish (Roman Urdu/Hindi)" },
+  { code: "ur", label: "Urdu (script)" },
+  { code: "hi", label: "Hindi (script)" },
 ];
 
 export default function App() {
   const [templates, setTemplates] = useState([]);
   const [file, setFile] = useState(null);
-  const [language, setLanguage] = useState("ur");
+  const [language, setLanguage] = useState("hinglish");
   const [template, setTemplate] = useState("");
   const [job, setJob] = useState(null); // { id, status, progress, message }
   const [error, setError] = useState("");

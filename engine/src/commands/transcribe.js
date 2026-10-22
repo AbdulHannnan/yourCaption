@@ -13,6 +13,55 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { loadConfig, resolvePath } from "../lib/project.js";
 import { buildCaptionDoc, saveCaptionDoc } from "../lib/captions.js";
+import { romanizeWords } from "../lib/transliterate.js";
+
+/**
+ * Resolve a user-facing language mode into the Whisper language and whether the
+ * output should be romanized to Hinglish.
+ *   "hinglish" / "roman" -> transcribe in Devanagari (config transliterate.sourceLang),
+ *                            then romanize to Latin.
+ *   "ur" / "hi" / others -> transcribe in that language, keep the native script.
+ */
+export function resolveLang(mode, cfg) {
+  const m = (mode || cfg.whisper?.defaultLanguage || "hinglish").toLowerCase();
+  if (m === "hinglish" || m === "roman" || m === "hing") {
+    return { mode: "hinglish", whisperLang: cfg.transliterate?.sourceLang || "hi", romanize: true };
+  }
+  return { mode: m, whisperLang: m, romanize: false };
+}
+
+// Assemble the whisper-cli argument list from config + resolved language.
+// -ml 1 -sow give per-word segments (needed for word-level timing); the rest
+// are the accuracy levers: beam search, an initial prompt that steers spelling
+// and keeps English words in Latin, VAD to avoid hallucinating over silence,
+// and a low temperature with fallback left on.
+function buildWhisperArgs({ modelPath, audioPath, whisperLang, mode, jsonPrefix, cfg }) {
+  const w = cfg.whisper || {};
+  const args = [
+    "-m", modelPath,
+    "-f", audioPath,
+    "-l", whisperLang,
+    "-t", String(w.threads || 4),
+    "-bs", String(w.beamSize ?? 5),
+    "-bo", String(w.bestOf ?? 5),
+    "-et", String(w.entropyThold ?? 2.4),
+    "-tp", String(w.temperature ?? 0.0),
+    "-ml", "1", "-sow", "-ojf", "-of", jsonPrefix, "-pp",
+  ];
+  // A short word-list primer keyed by the user's mode (never an imperative
+  // sentence — Whisper will echo a sentence back on music/silence).
+  const prompt = w.prompts?.[mode] ?? w.prompts?.[whisperLang];
+  if (prompt) args.push("--prompt", prompt);
+
+  // VAD is best-effort: only enable it if the model file is actually present.
+  if (w.vad && w.vadModel) {
+    const vadPath = resolvePath(w.vadModel);
+    if (existsSync(vadPath)) {
+      args.push("--vad", "-vm", vadPath, "-vt", String(w.vadThreshold ?? 0.5));
+    }
+  }
+  return args;
+}
 
 // Minimal flag parser: pulls out --lang / -l, returns { positional, lang }.
 function parseArgs(args) {
@@ -82,7 +131,6 @@ function fmtTime(s) {
 export function transcribeWords(audioPath, lang, cfg, { quiet = false } = {}) {
   const whisperBin = cfg.whisper?.binary || "whisper-cli";
   const modelPath = resolvePath(cfg.whisper?.model || "");
-  const threads = cfg.whisper?.threads || 4;
   const outDir = resolvePath(cfg.paths?.output || "output");
   mkdirSync(outDir, { recursive: true });
 
@@ -90,14 +138,12 @@ export function transcribeWords(audioPath, lang, cfg, { quiet = false } = {}) {
     throw new Error(`Whisper model not found: ${modelPath}\nRun 'npm run doctor' to check setup.`);
   }
 
+  const { mode, whisperLang, romanize } = resolveLang(lang, cfg);
   const stem = basename(audioPath, extname(audioPath));
   const jsonPrefix = join(outDir, `${stem}.whisper`);
   const jsonPath = `${jsonPrefix}.json`;
 
-  const wArgs = [
-    "-m", modelPath, "-f", audioPath, "-l", lang, "-t", String(threads),
-    "-ml", "1", "-sow", "-ojf", "-of", jsonPrefix, "-pp",
-  ];
+  const wArgs = buildWhisperArgs({ modelPath, audioPath, whisperLang, mode, jsonPrefix, cfg });
   const res = spawnSync(whisperBin, wArgs, { stdio: quiet ? "ignore" : ["ignore", "inherit", "inherit"] });
   if (res.error) {
     if (res.error.code === "ENOENT") throw new Error(`'${whisperBin}' not found. Install it: brew install whisper-cpp`);
@@ -107,7 +153,9 @@ export function transcribeWords(audioPath, lang, cfg, { quiet = false } = {}) {
   if (!existsSync(jsonPath)) throw new Error(`Expected whisper output not found: ${jsonPath}`);
 
   const json = JSON.parse(readFileSync(jsonPath, "utf8"));
-  return { words: parseWhisperJson(json), jsonPath };
+  const words = parseWhisperJson(json);
+  if (romanize) romanizeWords(words); // Devanagari -> Hinglish, English passes through
+  return { words, jsonPath, whisperLang, romanized: romanize };
 }
 
 export async function transcribe(args) {

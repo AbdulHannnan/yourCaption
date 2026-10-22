@@ -1,0 +1,14 @@
+{
+  "id": "b02b8fbd-7f3c-45c6-99c5-fa19a3d94673",
+  "status": "done",
+  "progress": 100,
+  "message": "Completed",
+  "language": "ur",
+  "template": "bubble",
+  "originalName": "motivational-travel-instagram-reels-video-1.mp4",
+  "uploadPath": "/Users/abdulhannan/Projects/yourCaption/backend/uploads/db52e4d1-67fc-4c51-a5a8-b29321fe2783.mp4",
+  "outputPath": "/Users/abdulhannan/Projects/yourCaption/engine/output/db52e4d1-67fc-4c51-a5a8-b29321fe2783.bubble.captioned.mp4",
+  "error": null,
+  "createdAt": "2026-10-22T18:40:24.474Z",
+  "updatedAt": "2026-10-22T18:40:58.061Z"
+}

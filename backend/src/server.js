@@ -90,7 +90,7 @@ app.post("/jobs", (req, res) => {
     }
     const names = available.map((t) => t.name);
     const template = req.body.template || (names.includes("clean") ? "clean" : names[0]);
-    const language = req.body.language || "ur";
+    const language = req.body.language || "hinglish";
 
     if (!names.includes(template)) {
       return res.status(400).json({ error: `Unknown template '${template}'. Available: ${names.join(", ")}` });

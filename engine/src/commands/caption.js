@@ -24,8 +24,9 @@ export function runPipeline(videoPath, opts, cfg, { quiet = false } = {}) {
   const say = quiet ? () => {} : (...a) => console.log(...a);
   const {
     templateName = cfg.render?.defaultTemplate || "clean",
-    lang = cfg.whisper?.defaultLanguage || "ur",
-    enhance = false,
+    lang = cfg.whisper?.defaultLanguage || "hinglish",
+    // enhance defaults from config (on, for accuracy) unless the flag overrides it.
+    enhance = cfg.enhance?.default ?? false,
     ai = false,
     edit = false,
     retranscribe = false,
@@ -100,7 +101,7 @@ export function runPipeline(videoPath, opts, cfg, { quiet = false } = {}) {
 
 function parseArgs(args) {
   const positional = [];
-  const opts = { enhance: false, ai: false, edit: false, retranscribe: false, previewSeconds: null };
+  const opts = { ai: false, edit: false, retranscribe: false, previewSeconds: null };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--template" || a === "-t") opts.templateName = args[++i];
@@ -108,6 +109,7 @@ function parseArgs(args) {
     else if (a === "--lang" || a === "-l") opts.lang = args[++i];
     else if (a.startsWith("--lang=")) opts.lang = a.slice(7);
     else if (a === "--enhance") opts.enhance = true;
+    else if (a === "--no-enhance") opts.enhance = false;
     else if (a === "--ai") { opts.ai = true; opts.enhance = true; }
     else if (a === "--edit") opts.edit = true;
     else if (a === "--retranscribe") opts.retranscribe = true;
@@ -128,7 +130,7 @@ export async function caption(args) {
   const { positional, opts } = parseArgs(args);
   const videoArg = positional[0];
   if (!videoArg) {
-    console.error("Usage: caption <video> [--template <name>] [--lang ur|hi] [--enhance] [--ai] [--edit] [--retranscribe] [--preview [sec]]");
+    console.error("Usage: caption <video> [--template <name>] [--lang hinglish|ur|hi] [--enhance|--no-enhance] [--ai] [--edit] [--retranscribe] [--preview [sec]]");
     process.exit(1);
   }
   const videoPath = resolveMediaPath(videoArg, ["input"], cfg);
@@ -138,9 +140,10 @@ export async function caption(args) {
   }
 
   const templateName = opts.templateName || cfg.render?.defaultTemplate || "clean";
-  const lang = opts.lang || cfg.whisper?.defaultLanguage || "ur";
+  const lang = opts.lang || cfg.whisper?.defaultLanguage || "hinglish";
+  const enhance = opts.enhance !== undefined ? opts.enhance : (cfg.enhance?.default ?? false);
   console.log(`\n=== yourCaption pipeline: ${basename(videoPath)} ===`);
-  console.log(`template=${templateName}  lang=${lang}  enhance=${opts.enhance}${opts.ai ? " (ai)" : ""}${opts.previewSeconds ? `  preview=${opts.previewSeconds}s` : ""}\n`);
+  console.log(`template=${templateName}  lang=${lang}  enhance=${enhance}${opts.ai ? " (ai)" : ""}${opts.previewSeconds ? `  preview=${opts.previewSeconds}s` : ""}\n`);
 
   let result;
   try {
